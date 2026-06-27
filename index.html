@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="de" data-mode="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASCII KAMERA</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #f5f0e8;
+      --fg:       #0a0a0a;
+      --red:      #d42b2b;
+      --yellow:   #f0c000;
+      --blue:     #1a3a8f;
+      --border:   #0a0a0a;
+      --hud-bg:   #f5f0e8;
+      --accent:   #d42b2b;
+      --muted:    #555;
+      --font-mono: 'Courier New', Courier, monospace;
+      --font-sans: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+    }
+    [data-mode="dark"] {
+      --bg:     #0a0a0a;
+      --fg:     #f5f0e8;
+      --border: #f5f0e8;
+      --hud-bg: #0a0a0a;
+      --muted:  #999;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      overflow: hidden;
+      font-family: var(--font-sans);
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ASCII FULLSCREEN */
+    #ascii-output {
+      position: fixed;
+      inset: 0;
+      font-family: var(--font-mono);
+      white-space: pre;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      line-height: 1.1;
+      letter-spacing: 0px;
+      transition: color 0.2s;
+    }
+
+    /* HUD — Bauhaus: harter Rand unten, kein Radius */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: stretch;
+      z-index: 10;
+      background: var(--hud-bg);
+      border-bottom: 3px solid var(--border);
+      transition: opacity 0.3s, background 0.2s, border-color 0.2s;
+    }
+    #hud.hidden { opacity: 0; pointer-events: none; }
+
+    /* Jede Sektion im HUD als Bauhaus-Block */
+    .hud-block {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 14px;
+      border-right: 2px solid var(--border);
+      height: 44px;
+      flex-shrink: 0;
+    }
+    .hud-block:last-child { border-right: none; }
+    .hud-block.grow { flex: 1; justify-content: flex-end; }
+
+    .hud-label {
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* Buttons — kein Radius, harter Rand */
+    button {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 10px;
+      background: transparent;
+      border: 2px solid var(--border);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 0;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s, border-color 0.2s;
+    }
+    button:hover { background: var(--fg); color: var(--bg); }
+    button.primary {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+    }
+    button.primary:hover { background: #a81e1e; border-color: #a81e1e; }
+    button.active-btn {
+      background: var(--fg);
+      color: var(--bg);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 80px; height: 2px;
+      background: var(--border);
+      outline: none; cursor: pointer;
+      border-radius: 0;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 20px;
+      background: var(--fg);
+      border-radius: 0;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 12px; height: 20px;
+      background: var(--fg); border: none; border-radius: 0;
+    }
+    #size-val, #fps-badge {
+      font-size: 9px; font-family: var(--font-mono);
+      font-weight: 700; min-width: 20px;
+      color: var(--fg);
+    }
+
+    .color-btns { display: flex; gap: 0; }
+    .color-btn {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      border-radius: 0;
+      margin-right: -2px;
+      transition: transform 0.1s;
+    }
+    .color-btn:hover { transform: scale(1.2); z-index: 1; }
+    .color-btn.active { outline: 2px solid var(--red); outline-offset: 1px; z-index: 2; }
+
+    select {
+      background: var(--bg); color: var(--fg);
+      border: 2px solid var(--border);
+      border-radius: 0;
+      padding: 3px 5px;
+      font-size: 9px;
+      font-family: var(--font-sans);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    /* Titelblock links */
+    #title-block {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--fg);
+      border-right: 2px solid var(--border);
+      padding: 0 14px;
+      display: flex; align-items: center;
+      height: 44px;
+      flex-shrink: 0;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    #title-block span {
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: var(--red);
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Verstecken-Button */
+    #show-btn {
+      position: fixed; top: 0; right: 0;
+      background: var(--hud-bg);
+      border: none;
+      border-bottom: 3px solid var(--border);
+      border-left: 2px solid var(--border);
+      color: var(--muted);
+      font-size: 9px; font-weight: 900;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 0 12px; height: 44px;
+      cursor: pointer; z-index: 20; display: none;
+      border-radius: 0;
+      transition: background 0.2s, color 0.2s;
+    }
+    #show-btn:hover { background: var(--fg); color: var(--bg); }
+
+    /* Platzhalter */
+    #placeholder {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
+      opacity: 0.25; pointer-events: none;
+      font-family: var(--font-sans);
+    }
+    #placeholder .big-cross {
+      font-size: 64px; line-height: 1;
+      font-weight: 900; color: var(--fg);
+    }
+    #placeholder p {
+      font-size: 9px; font-weight: 900;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--fg);
+    }
+
+    video, canvas { display: none; }
+
+    @media (max-width: 600px) {
+      .hud-label { display: none; }
+      #title-block { letter-spacing: 0.1em; font-size: 10px; }
+      .hud-block { padding: 0 8px; gap: 5px; }
+      input[type=range] { width: 55px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="title-block"><span></span>ASCII KAMERA</div>
+
+  <div class="hud-block">
+    <button id="start-btn" class="primary">
+      ▶ STARTEN
+    </button>
+  </div>
+
+  <div class="hud-block">
+    <span class="hud-label">Größe</span>
+    <input type="range" id="size-slider" min="6" max="28" value="13" step="1">
+    <span id="size-val">13</span>
+  </div>
+
+  <div class="hud-block">
+    <span class="hud-label">Farbe</span>
+    <div class="color-btns">
+      <button class="color-btn active" data-color-dark="#f5f0e8" data-color-light="#0a0a0a" style="background:#0a0a0a" title="Schwarz/Weiß"></button>
+      <button class="color-btn" data-color-dark="#d42b2b" data-color-light="#d42b2b" style="background:#d42b2b" title="Rot"></button>
+      <button class="color-btn" data-color-dark="#f0c000" data-color-light="#b08800" style="background:#f0c000" title="Gelb"></button>
+      <button class="color-btn" data-color-dark="#6a9fff" data-color-light="#1a3a8f" style="background:#1a3a8f" title="Blau"></button>
+      <button class="color-btn" data-color-dark="#aaa" data-color-light="#555" style="background:#888" title="Grau"></button>
+    </div>
+  </div>
+
+  <div class="hud-block">
+    <span class="hud-label">Zeichensatz</span>
+    <select id="charset-sel">
+      <option value="detailed">Detailliert</option>
+      <option value="simple">Einfach</option>
+      <option value="blocks">Blöcke</option>
+      <option value="binary">0/1 — Hintergrund</option>
+      <option value="inverse">1/0 — Figur</option>
+    </select>
+  </div>
+
+  <div class="hud-block grow">
+    <span id="fps-badge"></span>
+    <button id="mode-btn">☀ Hell</button>
+    <button id="hide-btn">✕</button>
+  </div>
+</div>
+
+<button id="show-btn">≡ HUD</button>
+
+<div id="ascii-output">
+  <div id="placeholder">
+    <div class="big-cross">+</div>
+    <p>Kamera aktivieren um zu starten</p>
+  </div>
+</div>
+
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+
+<script>
+  const CHARSETS = {
+    detailed: ' .\'`^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
+    simple:   ' .:-=+*#%@',
+    blocks:   ' ░▒▓█',
+    binary:   ' 01',
+    inverse:  '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'. '
+  };
+
+  const html      = document.documentElement;
+  const btn       = document.getElementById('start-btn');
+  const video     = document.getElementById('video');
+  const canvas    = document.getElementById('canvas');
+  const output    = document.getElementById('ascii-output');
+  const fpsBadge  = document.getElementById('fps-badge');
+  const charSel   = document.getElementById('charset-sel');
+  const hud       = document.getElementById('hud');
+  const hideBtn   = document.getElementById('hide-btn');
+  const showBtn   = document.getElementById('show-btn');
+  const modeBtn   = document.getElementById('mode-btn');
+  const sizeSlider = document.getElementById('size-slider');
+  const sizeValEl  = document.getElementById('size-val');
+  const ctx       = canvas.getContext('2d', { willReadFrequently: true });
+
+  let running      = false;
+  let animId       = null;
+  let chars        = CHARSETS.detailed;
+  let lastTime     = 0;
+  let frameCount   = 0;
+  let fontSize     = 13;
+  let cols         = 100;
+  let rows         = 40;
+  let isDark       = false;
+  let currentColorKey = 'sw'; // schwarz/weiß
+
+  // --- Dark/Light Mode ---
+  function applyMode() {
+    html.setAttribute('data-mode', isDark ? 'dark' : 'light');
+    modeBtn.textContent = isDark ? '☀ Hell' : '☾ Dunkel';
+    // Farbe neu setzen falls aktiver Button
+    const active = document.querySelector('.color-btn.active');
+    if (active) setAsciiColor(active);
+  }
+
+  modeBtn.addEventListener('click', () => {
+    isDark = !isDark;
+    applyMode();
+  });
+
+  // --- Farbe ---
+  function setAsciiColor(btn) {
+    const c = isDark ? btn.dataset.colorDark : btn.dataset.colorLight;
+    output.style.color = c;
+  }
+
+  document.querySelectorAll('.color-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.color-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      setAsciiColor(b);
+    });
+  });
+
+  // --- Größe ---
+  sizeSlider.addEventListener('input', () => {
+    fontSize = parseInt(sizeSlider.value);
+    sizeValEl.textContent = fontSize;
+    calcDimensions();
+  });
+
+  // --- Charset ---
+  charSel.addEventListener('change', () => { chars = CHARSETS[charSel.value]; });
+
+  // --- HUD verstecken ---
+  hideBtn.addEventListener('click', () => {
+    hud.classList.add('hidden');
+    showBtn.style.display = 'flex';
+    calcDimensions();
+  });
+  showBtn.addEventListener('click', () => {
+    hud.classList.remove('hidden');
+    showBtn.style.display = 'none';
+    calcDimensions();
+  });
+
+  // --- Dimensionen ---
+  function calcDimensions() {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const hudH = hud.classList.contains('hidden') ? 0 : hud.offsetHeight;
+    const availH = H - hudH - 4;
+    const charW = fontSize * 0.62;
+    const charH = fontSize * 1.1;
+    cols = Math.floor(W / charW);
+    rows = Math.floor(availH / charH);
+    output.style.fontSize = fontSize + 'px';
+    output.style.lineHeight = (fontSize * 1.1) + 'px';
+  }
+
+  window.addEventListener('resize', calcDimensions);
+  calcDimensions();
+
+  // Initialfarbe setzen
+  const firstColorBtn = document.querySelector('.color-btn.active');
+  if (firstColorBtn) setAsciiColor(firstColorBtn);
+
+  // --- Kamera ---
+  btn.addEventListener('click', async () => {
+    if (!running) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+        running = true;
+        btn.textContent = '■ STOPPEN';
+        btn.classList.remove('primary');
+        btn.classList.add('active-btn');
+        document.getElementById('placeholder')?.remove();
+        calcDimensions();
+        render();
+      } catch(e) {
+        output.innerHTML = '<div style="font-family:Arial Black,sans-serif;font-size:11px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#d42b2b;text-align:center;">KAMERAZUGRIFF VERWEIGERT<br><span style="font-weight:400;font-size:10px;">Browserberechtigungen prüfen</span></div>';
+      }
+    } else {
+      stopCamera();
+    }
+  });
+
+  function stopCamera() {
+    running = false;
+    cancelAnimationFrame(animId);
+    video.srcObject?.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+    btn.textContent = '▶ STARTEN';
+    btn.classList.add('primary');
+    btn.classList.remove('active-btn');
+    fpsBadge.textContent = '';
+    output.innerHTML = `<div id="placeholder" style="display:flex;flex-direction:column;align-items:center;gap:12px;opacity:.25;pointer-events:none;font-family:Arial Black,sans-serif;">
+      <div style="font-size:64px;line-height:1;font-weight:900;color:var(--fg);">+</div>
+      <p style="font-size:9px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;color:var(--fg);">Kamera aktivieren um zu starten</p>
+    </div>`;
+  }
+
+  // --- Render ---
+  function render(ts = 0) {
+    if (!running) return;
+    animId = requestAnimationFrame(render);
+    frameCount++;
+    const elapsed = ts - lastTime;
+    if (elapsed >= 1000) {
+      fpsBadge.textContent = Math.round(frameCount * 1000 / elapsed) + ' fps';
+      frameCount = 0;
+      lastTime = ts;
+    }
+    if (!video.videoWidth) return;
+
+    const vidAspect = video.videoWidth / video.videoHeight;
+    const screenAspect = (cols * 0.62) / (rows * 1.1);
+    let rCols, rRows;
+    if (vidAspect > screenAspect) {
+      rCols = cols;
+      rRows = Math.floor(cols / vidAspect / (1.1 / 0.62));
+    } else {
+      rRows = rows;
+      rCols = Math.floor(rows * vidAspect * (1.1 / 0.62));
+    }
+    rCols = Math.max(1, rCols);
+    rRows = Math.max(1, rRows);
+
+    canvas.width  = rCols;
+    canvas.height = rRows;
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -rCols, 0, rCols, rRows);
+    ctx.restore();
+
+    const data = ctx.getImageData(0, 0, rCols, rRows).data;
+    const cLen = chars.length - 1;
+    let ascii = '';
+    for (let y = 0; y < rRows; y++) {
+      for (let x = 0; x < rCols; x++) {
+        const i = (y * rCols + x) * 4;
+        const b = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
+        ascii += chars[Math.floor(b * cLen)];
+      }
+      ascii += '\n';
+    }
+    output.textContent = ascii;
+  }
+</script>
+</body>
+</html>
