@@ -363,6 +363,8 @@
 
   <div class="hud-block hud-block-primary">
     <button id="start-btn" class="primary">▶ STARTEN</button>
+    <button id="flip-btn" title="Frontkamera / Rückkamera" style="display:none;">⇄ VORNE</button>
+    <button id="photo-btn" title="Foto aufnehmen" style="display:none;">⊙ FOTO</button>
   </div>
 
   <div class="hud-block grow">
@@ -537,28 +539,85 @@
   if (modeBtn) modeBtn.textContent = '☀ HELL';
 
   // --- Kamera ---
-  btn.addEventListener('click', async () => {
-    if (!running) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-          audio: false
-        });
-        video.srcObject = stream;
-        await video.play();
+  const flipBtn  = document.getElementById('flip-btn');
+  const photoBtn = document.getElementById('photo-btn');
+  let facingMode = 'user'; // 'user' = Frontkamera, 'environment' = Rückkamera
+
+  async function startCamera() {
+    try {
+      if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      if (!running) {
         running = true;
         btn.textContent = '■ STOPPEN';
         btn.classList.remove('primary');
         btn.classList.add('active-btn');
+        flipBtn.style.display  = '';
+        photoBtn.style.display = '';
         document.getElementById('placeholder')?.remove();
         calcDimensions();
         render();
-      } catch(e) {
-        output.innerHTML = '<div style="font-family:Arial Black,sans-serif;font-size:11px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#d42b2b;text-align:center;">KAMERAZUGRIFF VERWEIGERT<br><span style="font-weight:400;font-size:10px;">Browserberechtigungen prüfen</span></div>';
       }
+    } catch(e) {
+      output.innerHTML = '<div style="font-family:Arial Black,sans-serif;font-size:11px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#d42b2b;text-align:center;">KAMERAZUGRIFF VERWEIGERT<br><span style="font-weight:400;font-size:10px;">Browserberechtigungen prüfen</span></div>';
+    }
+  }
+
+  btn.addEventListener('click', async () => {
+    if (!running) {
+      facingMode = 'user';
+      flipBtn.textContent = '⇄ HINTEN';
+      await startCamera();
     } else {
       stopCamera();
     }
+  });
+
+  // Kamera wechseln (vorne ↔ hinten)
+  flipBtn.addEventListener('click', async () => {
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    flipBtn.textContent = facingMode === 'user' ? '⇄ HINTEN' : '⇄ VORNE';
+    await startCamera();
+  });
+
+  // Foto aufnehmen und speichern
+  photoBtn.addEventListener('click', () => {
+    if (!running) return;
+
+    // ASCII-Text als Bild rendern
+    const lines   = output.textContent.split('\n').filter(l => l.length);
+    const lineH   = fontSize * 1.1;
+    const lineW   = fontSize * 0.62;
+    const pw      = Math.round(lines[0]?.length * lineW) || 800;
+    const ph      = Math.round(lines.length * lineH);
+
+    const pc = document.createElement('canvas');
+    pc.width  = pw;
+    pc.height = ph;
+    const pctx = pc.getContext('2d');
+
+    // Hintergrund
+    pctx.fillStyle = isDark ? '#0a0a0a' : '#f5f0e8';
+    pctx.fillRect(0, 0, pw, ph);
+
+    // ASCII-Text
+    pctx.font         = `${fontSize}px 'Courier New', monospace`;
+    pctx.fillStyle    = output.style.color || (isDark ? '#f5f0e8' : '#0a0a0a');
+    pctx.textBaseline = 'top';
+    lines.forEach((line, i) => {
+      pctx.fillText(line, 0, i * lineH);
+    });
+
+    // Herunterladen
+    const a = document.createElement('a');
+    a.href     = pc.toDataURL('image/png');
+    a.download = `ascii-kamera-${Date.now()}.png`;
+    a.click();
   });
 
   function stopCamera() {
@@ -569,7 +628,9 @@
     btn.textContent = '▶ STARTEN';
     btn.classList.add('primary');
     btn.classList.remove('active-btn');
-    fpsBadge.textContent = '';
+    flipBtn.style.display  = 'none';
+    photoBtn.style.display = 'none';
+    fpsBadge.textContent   = '';
     output.innerHTML = `<div id="placeholder" style="display:flex;flex-direction:column;align-items:center;gap:12px;opacity:.25;pointer-events:none;font-family:Arial Black,sans-serif;">
       <div style="font-size:64px;line-height:1;font-weight:900;color:var(--fg);">+</div>
       <p style="font-size:9px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;color:var(--fg);">Kamera aktivieren um zu starten</p>
