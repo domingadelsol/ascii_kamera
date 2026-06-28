@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="de" data-mode="light">
+<html lang="de" data-mode="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <style>body { min-width: 300px; }</style>
   <title>ASCII KAMERA</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -205,6 +206,68 @@
     }
     #show-btn:hover { background: var(--fg); color: var(--bg); }
 
+    /* Footer */
+    #footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      background: var(--hud-bg);
+      border-top: 2px solid var(--border);
+      z-index: 10;
+      transition: background 0.2s, border-color 0.2s;
+      gap: 8px;
+    }
+    #footer-left {
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #footer-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .counter-block {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+    }
+    .counter-label {
+      font-family: var(--font-sans);
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border: 1.5px solid var(--border);
+      color: var(--bg);
+      background: var(--fg);
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .counter-label.linkedin { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .counter-label.other    { background: var(--fg); border-color: var(--border); color: var(--bg); }
+    .counter-val {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fg);
+      min-width: 32px;
+      transition: color 0.2s;
+    }
+    .counter-sep {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
     /* Platzhalter */
     #placeholder {
       display: flex; flex-direction: column;
@@ -224,57 +287,125 @@
 
     video, canvas { display: none; }
 
+    /* hud-secondary: siempre visible en desktop, scrollable en móvil */
+    #hud-secondary {
+      display: flex;
+      align-items: stretch;
+    }
+    #hud-secondary .hud-block { border-bottom: none; }
+
     @media (max-width: 600px) {
+      /* HUD wird zweizeilig */
+      #hud {
+        flex-wrap: wrap;
+        height: auto;
+      }
+      #title-block {
+        height: 40px;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        padding: 0 10px;
+        flex: 1;
+        border-right: none;
+        border-bottom: 2px solid var(--border);
+      }
+      /* Primäre Zeile: Titel + Start + Mode + X */
+      .hud-block-primary {
+        display: flex !important;
+        height: 40px;
+        border-bottom: 2px solid var(--border);
+      }
+      /* Sekundäre Zeile: alle anderen Controls */
+      #hud-secondary {
+        display: flex;
+        width: 100%;
+        border-bottom: 2px solid var(--border);
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      #hud-secondary::-webkit-scrollbar { display: none; }
+      #hud-secondary .hud-block {
+        border-right: 2px solid var(--border);
+        border-bottom: none;
+        height: 36px;
+        padding: 0 8px;
+        flex-shrink: 0;
+      }
+      #hud-secondary .hud-block:last-child { border-right: none; }
       .hud-label { display: none; }
-      #title-block { letter-spacing: 0.1em; font-size: 10px; }
       .hud-block { padding: 0 8px; gap: 5px; }
-      input[type=range] { width: 55px; }
+      input[type=range] { width: 60px; }
+      button { font-size: 8px; padding: 4px 7px; }
+      .color-btn { width: 16px; height: 16px; }
+      select { font-size: 8px; }
+      #fps-badge { display: none; }
+      /* Grow block kompakt */
+      .hud-block.grow { display: none; }
+      /* Footer kompakter */
+      #footer { padding: 0 8px; gap: 4px; }
+      #footer-left { display: none; }
+      #footer-center { display: none !important; }
+    }
+
+    @media (max-width: 380px) {
+      #title-block { font-size: 8px; letter-spacing: 0.08em; }
+      button { font-size: 7px; padding: 3px 6px; }
+      input[type=range] { width: 48px; }
+      .color-btn { width: 14px; height: 14px; }
     }
   </style>
 </head>
 <body>
 
 <div id="hud">
+  <!-- Zeile 1: Titel + Hauptknöpfe -->
   <div id="title-block"><span></span>ASCII KAMERA</div>
 
-  <div class="hud-block">
-    <button id="start-btn" class="primary">
-      ▶ STARTEN
-    </button>
-  </div>
-
-  <div class="hud-block">
-    <span class="hud-label">Größe</span>
-    <input type="range" id="size-slider" min="6" max="28" value="13" step="1">
-    <span id="size-val">13</span>
-  </div>
-
-  <div class="hud-block">
-    <span class="hud-label">Farbe</span>
-    <div class="color-btns">
-      <button class="color-btn active" data-color-dark="#f5f0e8" data-color-light="#0a0a0a" style="background:#0a0a0a" title="Schwarz/Weiß"></button>
-      <button class="color-btn" data-color-dark="#d42b2b" data-color-light="#d42b2b" style="background:#d42b2b" title="Rot"></button>
-      <button class="color-btn" data-color-dark="#f0c000" data-color-light="#b08800" style="background:#f0c000" title="Gelb"></button>
-      <button class="color-btn" data-color-dark="#6a9fff" data-color-light="#1a3a8f" style="background:#1a3a8f" title="Blau"></button>
-      <button class="color-btn" data-color-dark="#aaa" data-color-light="#555" style="background:#888" title="Grau"></button>
-    </div>
-  </div>
-
-  <div class="hud-block">
-    <span class="hud-label">Zeichensatz</span>
-    <select id="charset-sel">
-      <option value="detailed">Detailliert</option>
-      <option value="simple">Einfach</option>
-      <option value="blocks">Blöcke</option>
-      <option value="binary">0/1 — Hintergrund</option>
-      <option value="inverse">1/0 — Figur</option>
-    </select>
+  <div class="hud-block hud-block-primary">
+    <button id="start-btn" class="primary">▶ STARTEN</button>
   </div>
 
   <div class="hud-block grow">
     <span id="fps-badge"></span>
-    <button id="mode-btn">☀ Hell</button>
+    <button id="mode-btn">☾ DUNKEL</button>
     <button id="hide-btn">✕</button>
+  </div>
+
+  <!-- Zeile 2: Sekundäre Controls (scrollbar auf Mobilgeräten) -->
+  <div id="hud-secondary">
+    <div class="hud-block">
+      <span class="hud-label">Größe</span>
+      <input type="range" id="size-slider" min="6" max="28" value="13" step="1">
+      <span id="size-val">13</span>
+    </div>
+
+    <div class="hud-block">
+      <span class="hud-label">Farbe</span>
+      <div class="color-btns">
+        <button class="color-btn active" data-color-dark="#f5f0e8" data-color-light="#0a0a0a" style="background:#0a0a0a" title="Schwarz/Weiß"></button>
+        <button class="color-btn" data-color-dark="#d42b2b" data-color-light="#d42b2b" style="background:#d42b2b" title="Rot"></button>
+        <button class="color-btn" data-color-dark="#f0c000" data-color-light="#b08800" style="background:#f0c000" title="Gelb"></button>
+        <button class="color-btn" data-color-dark="#6a9fff" data-color-light="#1a3a8f" style="background:#1a3a8f" title="Blau"></button>
+        <button class="color-btn" data-color-dark="#aaa" data-color-light="#555" style="background:#888" title="Grau"></button>
+      </div>
+    </div>
+
+    <div class="hud-block">
+      <span class="hud-label">Zeichensatz</span>
+      <select id="charset-sel">
+        <option value="detailed">Detailliert</option>
+        <option value="simple">Einfach</option>
+        <option value="blocks">Blöcke</option>
+        <option value="binary">0/1 — Hintergrund</option>
+        <option value="inverse">1/0 — Figur</option>
+      </select>
+    </div>
+
+    <!-- Mode + close visible nur auf Desktop in secondary, auf Mobil in primary -->
+    <div class="hud-block mobile-mode-block" style="display:none;">
+      <button id="mode-btn-mobile">☾ DUNKEL</button>
+      <button id="hide-btn-mobile">✕</button>
+    </div>
   </div>
 </div>
 
@@ -284,6 +415,26 @@
   <div id="placeholder">
     <div class="big-cross">+</div>
     <p>Kamera aktivieren um zu starten</p>
+  </div>
+</div>
+
+<div id="footer">
+  <div id="footer-left">ASCII KAMERA © 2026</div>
+  <div id="footer-center" style="display:flex;align-items:center;gap:10px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);">
+    <a href="mailto:domingadelsol@gmail.com" style="color:var(--muted);text-decoration:none;transition:color 0.15s;" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">domingadelsol@gmail.com</a>
+    <span style="color:var(--border);font-size:10px;">·</span>
+    <a href="https://domingadelsol.github.io" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:3px;transition:color 0.15s;" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Portfolio <span style="font-size:11px;">↗</span></a>
+  </div>
+  <div id="footer-right">
+    <div class="counter-block">
+      <span class="counter-label linkedin">L</span>
+      <span class="counter-val" id="count-li">—</span>
+    </div>
+    <span class="counter-sep">·</span>
+    <div class="counter-block">
+      <span class="counter-label other">O</span>
+      <span class="counter-val" id="count-other">—</span>
+    </div>
   </div>
 </div>
 
@@ -299,57 +450,52 @@
     inverse:  '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'. '
   };
 
-  const html      = document.documentElement;
-  const btn       = document.getElementById('start-btn');
-  const video     = document.getElementById('video');
-  const canvas    = document.getElementById('canvas');
-  const output    = document.getElementById('ascii-output');
-  const fpsBadge  = document.getElementById('fps-badge');
-  const charSel   = document.getElementById('charset-sel');
-  const hud       = document.getElementById('hud');
-  const hideBtn   = document.getElementById('hide-btn');
-  const showBtn   = document.getElementById('show-btn');
-  const modeBtn   = document.getElementById('mode-btn');
+  const html       = document.documentElement;
+  const btn        = document.getElementById('start-btn');
+  const video      = document.getElementById('video');
+  const canvas     = document.getElementById('canvas');
+  const output     = document.getElementById('ascii-output');
+  const fpsBadge   = document.getElementById('fps-badge');
+  const charSel    = document.getElementById('charset-sel');
+  const hud        = document.getElementById('hud');
+  const hideBtn    = document.getElementById('hide-btn');
+  const showBtn    = document.getElementById('show-btn');
+  const modeBtn    = document.getElementById('mode-btn');
   const sizeSlider = document.getElementById('size-slider');
   const sizeValEl  = document.getElementById('size-val');
-  const ctx       = canvas.getContext('2d', { willReadFrequently: true });
+  const ctx        = canvas.getContext('2d', { willReadFrequently: true });
 
-  let running      = false;
-  let animId       = null;
-  let chars        = CHARSETS.detailed;
-  let lastTime     = 0;
-  let frameCount   = 0;
-  let fontSize     = 13;
-  let cols         = 100;
-  let rows         = 40;
-  let isDark       = false;
-  let currentColorKey = 'sw'; // schwarz/weiß
+  let running    = false;
+  let animId     = null;
+  let chars      = CHARSETS.detailed;
+  let lastTime   = 0;
+  let frameCount = 0;
+  let fontSize   = 13;
+  let cols       = 100;
+  let rows       = 40;
+  let isDark     = true;
 
   // --- Dark/Light Mode ---
   function applyMode() {
     html.setAttribute('data-mode', isDark ? 'dark' : 'light');
-    modeBtn.textContent = isDark ? '☀ Hell' : '☾ Dunkel';
-    // Farbe neu setzen falls aktiver Button
-    const active = document.querySelector('.color-btn.active');
-    if (active) setAsciiColor(active);
+    const label = isDark ? '☀ HELL' : '☾ DUNKEL';
+    if (modeBtn) modeBtn.textContent = label;
+    refreshColor();
   }
-
-  modeBtn.addEventListener('click', () => {
-    isDark = !isDark;
-    applyMode();
-  });
+  modeBtn?.addEventListener('click', () => { isDark = !isDark; applyMode(); });
 
   // --- Farbe ---
-  function setAsciiColor(btn) {
-    const c = isDark ? btn.dataset.colorDark : btn.dataset.colorLight;
-    output.style.color = c;
+  function refreshColor() {
+    const active = document.querySelector('.color-btn.active');
+    if (active) {
+      output.style.color = isDark ? active.dataset.colorDark : active.dataset.colorLight;
+    }
   }
-
   document.querySelectorAll('.color-btn').forEach(b => {
     b.addEventListener('click', () => {
       document.querySelectorAll('.color-btn').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
-      setAsciiColor(b);
+      refreshColor();
     });
   });
 
@@ -364,37 +510,31 @@
   charSel.addEventListener('change', () => { chars = CHARSETS[charSel.value]; });
 
   // --- HUD verstecken ---
-  hideBtn.addEventListener('click', () => {
-    hud.classList.add('hidden');
-    showBtn.style.display = 'flex';
-    calcDimensions();
-  });
-  showBtn.addEventListener('click', () => {
-    hud.classList.remove('hidden');
-    showBtn.style.display = 'none';
-    calcDimensions();
-  });
+  function hideHud() { hud.classList.add('hidden'); showBtn.style.display = 'flex'; calcDimensions(); }
+  function showHud()  { hud.classList.remove('hidden'); showBtn.style.display = 'none'; calcDimensions(); }
+  hideBtn?.addEventListener('click', hideHud);
+  showBtn?.addEventListener('click', showHud);
 
   // --- Dimensionen ---
   function calcDimensions() {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const hudH = hud.classList.contains('hidden') ? 0 : hud.offsetHeight;
-    const availH = H - hudH - 4;
-    const charW = fontSize * 0.62;
-    const charH = fontSize * 1.1;
-    cols = Math.floor(W / charW);
-    rows = Math.floor(availH / charH);
-    output.style.fontSize = fontSize + 'px';
+    const W       = window.innerWidth;
+    const H       = window.innerHeight;
+    const hudH    = hud.classList.contains('hidden') ? 0 : hud.offsetHeight;
+    const footerH = document.getElementById('footer')?.offsetHeight || 28;
+    const availH  = H - hudH - footerH - 2;
+    const charW   = fontSize * 0.62;
+    const charH   = fontSize * 1.1;
+    cols = Math.max(1, Math.floor(W / charW));
+    rows = Math.max(1, Math.floor(availH / charH));
+    output.style.fontSize   = fontSize + 'px';
     output.style.lineHeight = (fontSize * 1.1) + 'px';
   }
 
   window.addEventListener('resize', calcDimensions);
   calcDimensions();
-
-  // Initialfarbe setzen
-  const firstColorBtn = document.querySelector('.color-btn.active');
-  if (firstColorBtn) setAsciiColor(firstColorBtn);
+  refreshColor();
+  // Botón de modo sincronizado con el estado inicial
+  if (modeBtn) modeBtn.textContent = '☀ HELL';
 
   // --- Kamera ---
   btn.addEventListener('click', async () => {
@@ -436,7 +576,71 @@
     </div>`;
   }
 
-  // --- Render ---
+  // --- Besucherzähler ---
+  const NS         = 'domingadelsol.github.io';
+  const KEY_LI     = 'ascii-cam-li-v2';
+  const KEY_OTHER  = 'ascii-cam-other-v2';
+  const BASE_LI    = 1132;
+  const BASE_OTHER = 2128;
+
+  async function ensureCounter(key, base) {
+    try {
+      const info = await fetch(`https://api.countapi.xyz/info/${NS}/${key}`).then(r => r.json());
+      if (info && info.value !== null) {
+        // Existe — si el valor es menor que el base, corregirlo
+        if (info.value < base) {
+          await fetch(`https://api.countapi.xyz/set/${NS}/${key}?value=${base}`);
+        }
+        return;
+      }
+    } catch(e) {}
+    // No existe — crear con valor base y enable_reset=1
+    try {
+      await fetch(`https://api.countapi.xyz/create?namespace=${NS}&key=${key}&value=${base}&enable_reset=1&update_lowerbound=0&update_upperbound=1`);
+    } catch(e) {}
+  }
+
+  async function hitCounter(key) {
+    try {
+      const res = await fetch(`https://api.countapi.xyz/hit/${NS}/${key}`).then(r => r.json());
+      return (res && res.value != null) ? res.value : null;
+    } catch(e) { return null; }
+  }
+
+  async function getCounter(key) {
+    try {
+      const res = await fetch(`https://api.countapi.xyz/get/${NS}/${key}`).then(r => r.json());
+      return (res && res.value != null) ? res.value : null;
+    } catch(e) { return null; }
+  }
+
+  function fmt(n) {
+    return n != null ? Number(n).toLocaleString('de-DE') : '—';
+  }
+
+  async function setupCounters() {
+    const liEl    = document.getElementById('count-li');
+    const otherEl = document.getElementById('count-other');
+
+    // Sicherstellen, dass beide Zähler mit Basiswert existieren
+    await ensureCounter(KEY_LI,    BASE_LI);
+    await ensureCounter(KEY_OTHER, BASE_OTHER);
+
+    const isLinkedIn = document.referrer.includes('linkedin.com');
+
+    if (isLinkedIn) {
+      const [liVal, otherVal] = await Promise.all([hitCounter(KEY_LI), getCounter(KEY_OTHER)]);
+      liEl.textContent    = fmt(liVal);
+      otherEl.textContent = fmt(otherVal);
+    } else {
+      const [otherVal, liVal] = await Promise.all([hitCounter(KEY_OTHER), getCounter(KEY_LI)]);
+      otherEl.textContent = fmt(otherVal);
+      liEl.textContent    = fmt(liVal);
+    }
+  }
+
+  setupCounters();
+
   function render(ts = 0) {
     if (!running) return;
     animId = requestAnimationFrame(render);
